@@ -1,7 +1,7 @@
 ---
 title: hexo使用记录
 tags: Manual
-# mathjax: true
+date: 2018-01-11 16:24:53
 ---
 
 ## 1. 安装nodejs
@@ -11,7 +11,18 @@ tags: Manual
 ## 2. 安装hexo
 <!--more-->
 - 先创建一个文件夹（用来存放所有blog），然后cd到该文件夹下
-- 安装hexo: `npm i -g hexo`
+- 安装hexo: ~~`npm i -g hexo`~~
+
+**Updated in Jan 19th, 2019:**<br> 旧的hexo安装方法不再支持，如果使用旧指令的话会报错显示
+    
+```bash
+$ npm i -g hexo
+npm WARN deprecated titlecase@1.1.2: no longer maintained
+# -------------------------
+# Updated in Jan 19th, 2019
+# New command to install hexo
+$ npm install hexo-cli -g
+```
 - 初始化hexo: `hexo init`
 
 ## 3. 创建github.io
@@ -84,14 +95,25 @@ $$\eta_*^\lambda=\sum_{i=0}^{T}D_{t_{e}^{s}}tk$$
     ``` bash
     npm install --save hexo-pdf
     ```
+- 在根目录下的_config.yml文件中设置`post_asset_folder`为`true`
 - 在markdown中需要用到pdf文件的地方加上
-    ``` html
-    {% pdf http://some_url.com/some_pdf.pdf %}
-    ```
+```html
+{% pdf http://some_url.com/some_pdf.pdf %}
+```
 - 在blog的source/_post路径下新建一个文件夹，<span style="color:red"><b>名字与引用pdf的markdown文件名相同</b></span>，放入要上传的pdf文件
+- `hexo deploy`的时候会自动上传文件夹
 
+## 6. 修改NexT主题配置
 
-## 5. Hello world HEXO
+- 调整默认字体、字体大小与背景颜色等设定，定位到文件 `./newblog/themes/next/source/css/_variables/base.styl`
+- 修改代码块主题，找到`./themes/next/_config.yml`中的Code Highlight Theme，有下面四种可选项，个人经斟酌选择用night bright，并将selection调整为orange
+    - normal
+    - night
+    - night eighties
+    - night blue
+    - night bright
+
+## 7. Hello world HEXO
 
 Welcome to [Hexo](https://hexo.io/)! This is your very first post. Check [documentation](https://hexo.io/docs/) for more info. If you get any problems when using Hexo, you can find the answer in [troubleshooting](https://hexo.io/docs/troubleshooting.html) or you can ask me on [GitHub](https://github.com/hexojs/hexo/issues).
 

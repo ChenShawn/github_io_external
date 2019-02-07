@@ -2,7 +2,7 @@
 mathjax: true
 title: MCMC基础
 tags: Machine learning
-encrypt: true
+date: 2018-05-09 18:08:15
 ---
 
 This post is mainly for the testing of MathJax in hexo
