@@ -433,3 +433,107 @@ public:
     }
 };
 ```
+## 221. Maximal Square
+
+> Given a 2D binary matrix filled with 0's and 1's, find the largest square containing only 1's and return its area.
+
+这道题的难点在于
+
+- 递推公式不是很显然，无法归纳到几类典型的DP问题中
+- 一维DP的优化思路非常不直观
+
+### 基础DP解法
+
+定义$dp(i,j)$的值为从左上顶点到坐标$(i,\ j)$为止的最大正方形边长，则Solution中给出的递推公式是这样的
+
+$$dp(i, j) = \min(dp(i-1, j), dp(i, j-1), dp(i-1, j-1)) + 1 \quad{} \text{if}\ matrix(i-1, j-1)==1$$
+
+虽然LeetCode上给出了下面这张图片来便于理解，但是这个递推公式仍然非常不直观：一般如果DP所求解的最终目标是一个离散空间中的最大值的话，那么递推公式中也应当包含$\max$项，然而这个递推公式中是用$\min$来确保遍历中所到达的每个点都是正方形
+
+除此以外，我们还需要在每一次更新时记录最大边长的值
+
+<div align="center">
+    <img src="https://leetcode.com/media/original_images/221_Maximal_Square.PNG?raw=true" width=550px>
+</div>
+
+代码如下
+
+```cpp
+int maximalSquare(vector<vector<char>>& matrix) {
+    int m = matrix.size();
+    if (m == 0)
+        return 0;
+    int n = matrix[0].size();
+    int maxlen = 0;
+    vector<vector<int>> dp(m + 1, vector<int>(n + 1, 0));
+    for (int i=1; i<=m; i++) {
+        for (int j=1; j<=n; j++) {
+            if (matrix[i - 1][j - 1] == '1') {
+                dp[i][j] = min(min(dp[i - 1][j], dp[i][j - 1]), dp[i - 1][j - 1]) + 1;
+                maxlen = max(maxlen, dp[i][j]);
+            }
+        }
+    }
+    return maxlen * maxlen;
+}
+```
+
+### 内存优化
+
+这里为什么可以用内存优化策略？如果我们仔细观察基础DP解法的代码，会发现每次更新中，只用到了$dp(i-1,j),dp(i,j-1)$与$dp(i-1,j-1)$三个值，其中$dp(i,j-1)$是遍历中上一次所到达的坐标，因此只需要多开一个prev变量来记录之前的状态即可，而$dp(i-1,j-1)$可以用上一次dp更新前的数值来表示，因而也可以省去，唯一真正需要的是之前column的最大正方形边长。
+
+因此，经优化后，可以用$dp(i)$表示到达第i列为止最大的正方形边长，代码如下
+
+```cpp
+int maximalSquare(vector<vector<char>>& matrix) {
+    int m = matrix.size(), maxlen = 0, prev = 0, tmp;
+    if (m == 0)
+        return 0;
+    int n = matrix[0].size();
+    vector<int> dp(n + 1, 0);
+    for (int i=1; i<=m; i++) {
+        for (int j=1; j<=n; j++) {
+            tmp = dp[j];
+            if (matrix[i - 1][j - 1] == '1') {
+                dp[j] = min(min(dp[j - 1], prev), dp[j]) + 1;
+                maxlen = max(maxlen, dp[j]);
+            } else {
+                dp[j] = 0;
+            }
+            prev = tmp;
+        }
+    }
+    return maxlen * maxlen;
+}
+```
+
+## 673. Number of Longest Increasing Subsequence
+
+> Given an unsorted array of integers, find the number of longest increasing subsequence.
+
+- 数组`len[i]`表示到达下标i时，最长的LIS长度为`len[i]`
+- 数组`cnt[i]`表示到达下标i时，有`cnt[i]`种长度为`len[i]`的LIS
+
+```cpp
+int findNumberOfLIS(vector<int>& nums) {
+    int n = nums.size(), maxlen = 1, ans = 0;
+    vector<int> cnt(n, 1), len(n, 1);
+    for (int i = 1; i < n; i++) {
+        for (int j = 0; j < i; j++) {
+            if (nums[i] > nums[j]) {
+                if (len[j] + 1 > len[i]) {
+                    len[i] = len[j] + 1;
+                    cnt[i] = cnt[j];
+                } else if (len[j] + 1 == len[i]) {
+                    cnt[i] += cnt[j];
+                }
+            }
+        }
+        maxlen = max(maxlen, len[i]);
+    }
+    for (int i = 0; i < n; i++) 
+        if (len[i] == maxlen)
+            ans += cnt[i];
+    return ans;
+}
+```

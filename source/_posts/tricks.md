@@ -8,6 +8,43 @@ mathjax: true
 *未完成，待更新。。。*
 <!--more-->
 
+## 基础：牛顿法开根号
+
+头条面试被问过的问题，当时紧张加脑抽没答好，其实是很简单的一个问题
+
+假设输入数字是$y$，我们要求的目标是$x$，那么用二范数误差目标函数可以写作
+
+$$\min_{x}\frac{1}{2}(y-x^{2})^{2}$$
+
+牛顿法的公式为
+
+$$x_{t+1}\leftarrow{}x_{t}-\frac{f(x_{t})}{f'(x_{t})}$$
+
+那么可以化简得到更新公式
+
+$$x_{t+1}\leftarrow{} x_{t}-\frac{x^{2}-y}{4x}$$
+
+有关这个公式唯一需要注意的边界条件就是x不能为0，否则在后续的迭代中就会出现devided-by-zero的问题。
+
+```cpp
+inline float ABS(const float n) {
+    return n > 0 ? n : -n;
+}
+
+float newton(float y, float epsilon=1e-5, int maxiter=20) {
+    if (ABS(y) < epsilon)
+        return 0.0;
+    float x = y, res;
+    int cnt = 0;
+    do {
+        res = ABS(y - x * x);
+        x -= (x * x - y) / (4.0 * x);
+        cnt += 1;
+    } while (cnt < maxiter && res > epsilon);
+    return x;
+}
+```
+
 # Binary Search
 
 ## 4. Median of Two Sorted Arrays
@@ -225,8 +262,6 @@ public:
 
 ## 5. Longest Palindromic Substring
 
-水题，犯了低级错误没能秒
-
 ```cpp
 class Solution {
 public:
@@ -384,3 +419,56 @@ int maxArea(vector<int>& height) {
 > Initially we consider the area constituting the exterior most lines. Now, to maximize the area, we need to consider the area between the lines of larger lengths. <b style="color:red">If we try to move the pointer at the longer line inwards, we won't gain any increase in area, since it is limited by the shorter line.</b> But moving the shorter line's pointer could turn out to be beneficial, as per the same argument, despite the reduction in the width. This is done since a relatively longer line obtained by moving the shorter line's pointer might overcome the reduction in area caused by the width reduction.
 > 
 > For further clarification [click here](https://leetcode.com/problems/container-with-most-water/discuss/6099/yet-another-way-to-see-what-happens-in-the-on-algorithm) and for the proof [click here](https://leetcode.com/problems/container-with-most-water/discuss/6089/anyone-who-has-a-on-algorithm).
+
+## 382. Linked List Random Node
+
+> Given a singly linked list, return a random node's value from the linked list. Each node must have the same probability of being chosen.
+> 
+> **Follow up:**
+> 
+> What if the linked list is extremely large and its length is unknown to you? Could you solve this efficiently without using extra space?
+
+Resevoir sampling类型的题，要求在一个不知道长度的链表中采样，每个节点被采样到的概率相等，本题只需要采样一个节点
+
+Resevoir sampling的基本思路：
+
+- 构造一个buffer来存储被采样到的节点（针对此题buffer大小为1）
+- 从链表头指针开始向后遍历，第$k$个节点有$1/k$的概率被采样到
+- 遍历结束时，返回buffer中的节点元素
+
+数学性质分析：
+
+设事件$A_{k}=\{\text{Node k is put into the buffer}\}$，$B_{k}^{i}=\{\text{Node k is replaced by node i}\}$，$R_{k}=\{\text{Node k is returned as a sampled node}\}$，设链表总结点数为$N$，那么链表中第$k$个节点最终被返回的概率为
+
+$$P(R_{k})=P(A_{k})\prod_{i=k+1}^{N}[1-P(B_{k}^{i}|A_{k})]$$
+
+第k个节点被采样到的概率为$\frac{1}{k}$，代入得
+
+$$P(R_{k})=\frac{1}{k}\prod_{i=k+1}^{N}[1-\frac{1}{i}]=\frac{1}{k}\frac{k}{k+1}\frac{k+1}{k+2}...\frac{N-1}{N}=\frac{1}{N}$$
+
+最终的代码
+
+```cpp
+class Solution {
+public:
+    /** @param head The linked list's head.
+        Note that the head is guaranteed to be not null, so it contains at least one node. */
+    Solution(ListNode* _head): head(_head) {}
+    
+    /** Returns a random node's value. */
+    int getRandom() {
+        ListNode *p = head, *ans = head;
+        float prob = 1.0;
+        while (p != NULL) {
+            float epsilon = float(rand()) / float(RAND_MAX);
+            if (epsilon < (1.0 / prob))
+                ans = p;
+            prob += 1.0;
+            p = p->next;
+        }
+        return ans->val;
+    }
+private:
+    ListNode *head;
+};
+```

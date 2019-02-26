@@ -5,7 +5,7 @@ tags: Machine learning
 date: 2018-05-09 18:08:15
 ---
 
-This post is mainly for the testing of MathJax in hexo
+*This post is mainly for the testing of MathJax in hexo*
 
 ## 1. Random walk
 <!--more-->

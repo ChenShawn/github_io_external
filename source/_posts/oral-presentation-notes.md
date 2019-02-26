@@ -5,7 +5,7 @@ tags: Personal
 mathjax: true
 ---
 
-## The presentation notes used in AAAI-2019 oral presentation
+**The presentation note is used in AAAI-2019 oral presentation**
 
 <!--more-->
 Good morning/afternoon, everyone. It’s honored to be here to present our work “the adversarial attack and detection under the Fisher information metric”. My name is Zhao Chenxiao. It’s joint work with Prof. Fletcher, Yu Mixue, Prof Peng, Prof Zhang, and Prof Shen. 
