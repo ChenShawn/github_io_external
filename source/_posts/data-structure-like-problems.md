@@ -269,3 +269,150 @@ ListNode* partition(ListNode* head, int x) {
 ```
 
 <b style="color:red;">Note</b>: 由于寻址`->`运算符优先级大于解引用`*`，上面代码中while循环里的括号不能省略，这道题虽然很简单，但是第一次提交时在这里debug花了非常多的时间
+
+## 108. Convert Sorted Array to Binary Search Tree
+
+> Given an array where elements are sorted in ascending order, convert it to a height balanced BST.
+> 
+> For this problem, a height-balanced binary tree is defined as a binary tree in which the depth of the two subtrees of every node never differ by more than 1.
+
+Easy难度的题，用二分查找相同的方法搜索即可，然而基本功退化的厉害，在下标这种corner case卡了很久才做出来
+
+```cpp
+struct BalancedBST {
+    BalancedBST(TreeNode *ptr): root(ptr) {}
+    
+    void insert(int val) {
+        TreeNode **p = &root;
+        while ((*p) != NULL) {
+            if ((*p)->val < val)
+                p = &((*p)->right);
+            else if ((*p)->val > val)
+                p = &((*p)->left);
+            else
+                return;
+        }
+        *p = new TreeNode(val);
+    }
+    
+    TreeNode *root;
+};
+
+class Solution {
+public:
+    TreeNode* sortedArrayToBST(vector<int>& nums) {
+        if (nums.empty())
+            return NULL;
+        int mid = (1 + nums.size()) >> 1;
+        BalancedBST tree(new TreeNode(nums[mid - 1]));
+        makeTree(tree, nums, 1, mid - 1);
+        makeTree(tree, nums, mid + 1, nums.size());
+        return tree.root;
+    }
+    
+    void makeTree(BalancedBST& tree, const vector<int>& nums, int left, int right) {
+        if (right < left)
+            return;
+        int mid = (left + right) >> 1;
+        tree.insert(nums[mid - 1]);
+        makeTree(tree, nums, left, mid - 1);
+        makeTree(tree, nums, mid + 1, right);
+    }
+};
+```
+
+## 109. Convert Sorted List to Binary Search Tree
+
+> Given a singly linked list where elements are sorted in ascending order, convert it to a height balanced BST.
+> 
+> For this problem, a height-balanced binary tree is defined as a binary tree in which the depth of the two subtrees of every node never differ by more than 1.
+
+[上面那道题](#108-Convert-Sorted-Array-to-Binary-Search-Tree)的变形，输入从数组变成了单链表，主要的问题在于不能像数组一样方便地用下标来reference元素了。
+
+$O(N\log(N))$的解决思路很容易想到，用类似链表快排的思路即可
+
+```cpp
+struct BalancedBST {
+    BalancedBST(TreeNode *ptr): root(ptr) {}
+    
+    void insert(int val) {
+        TreeNode **p = &root;
+        while ((*p) != NULL) {
+            if ((*p)->val < val)
+                p = &((*p)->right);
+            else if ((*p)->val > val)
+                p = &((*p)->left);
+            else
+                return;
+        }
+        *p = new TreeNode(val);
+    }
+    
+    TreeNode *root;
+};
+
+class Solution {
+public:
+    TreeNode* sortedListToBST(ListNode* head) {
+        if (head == NULL)
+            return NULL;
+        BalancedBST bst(NULL);
+        makeTree(bst, head, NULL);
+        return bst.root;
+    }
+    
+    void makeTree(BalancedBST& tree, ListNode* left, ListNode* right) {
+        ListNode *slow = left, *fast = left;
+        if (left == right || left == NULL)
+            return;
+        else if (left->next == right) {
+            tree.insert(left->val);
+            return;
+        }
+        while (slow != right && fast != right && fast->next != right) {
+            slow = slow->next;
+            fast = fast->next;
+            if (fast != NULL && fast != right)
+                fast = fast->next;
+        }
+        tree.insert(slow->val);
+        makeTree(tree, left, slow);
+        makeTree(tree, slow, right);
+    }
+};
+```
+
+问题在于$O(N)$的解，讨论区里一个高赞的解法代码写的非常漂亮
+
+```cpp
+class Solution {
+public:
+    int count(ListNode *node) const {
+        int size = 0;
+        while (node) {
+            ++size;
+            node = node->next;
+        }
+        return size;
+    }
+    
+    TreeNode *generate(int n) {
+        if (n == 0)
+            return NULL;
+        TreeNode *node = new TreeNode(0);
+        node->left = generate(n / 2);
+        node->val = list->val;
+        list = list->next;
+        node->right = generate(n - n / 2 - 1);
+        return node;
+    }
+    
+    TreeNode *sortedListToBST(ListNode *head) {
+        this->list = head;
+        return generate(count(head));
+    }
+
+private:
+    ListNode *list;
+};
+```

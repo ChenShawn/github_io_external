@@ -8,80 +8,6 @@ mathjax: true
 *未完成，待更新。。。*
 <!--more-->
 
-## 494. Target Sum
-
-> You are given a list of non-negative integers, a1, a2, ..., an, and a target, S. Now you have 2 symbols + and -. For each integer, you should choose one from + and - as its new symbol.
-> 
-> Find out how many ways to assign symbols to make sum of integers equal to target S.
-
-暴力做法是$O(2^{N})$，不可取，转而研究这个题是否可以化为dp求解。算法导论里学过，如果一个问题可以用dp求解，那么它一定满足两个条件
-
-- 存在最优子问题 optimal subproblem
-- 子问题之间存在重叠 overlapping between subproblem
-
-首先考虑一个trick来将这个问题化成一个类似于0-1背包的问题，设所有前面加正号的集合为$P$，负号的集合为$N$，那么有下面两个等式成立
-
-$$P+N=Sum \\ P-N=target$$
-
-可得$P=\frac{1}{2}(sum + target)$，至此就将题目转换成了一个类0-1背包问题——在数组中找一个子集$P$，使得P的和为$\frac{1}{2}(sum + target)$。容易想到，对于数组中的某个元素`nums[i]`，若数组存在若干个解可以加和得到S，那么也一定可以加和得到`S-nums[i]`。按照这个思路，开一个二维数组`dp[i][j]`表示前i个元素有`dp[i][j]`种方案可以加和得到`j`。接下来就非常简单了，复杂度为$O(NS)$，递推公式为
-$$dp[i][j]=dp[i-1][j]+dp[i-1][j-nums[i]]$$
-
-我的答案是直接照搬递推公式实现，但实际上空间复杂度还是可以继续优化的。假设数组`dp[i]`代表截至到下标i之前有多少种方案，由此只需要$dp[i]+=dp[i-nums[j]], \forall{j\in{nums}}, \forall{i\in{\{nums[j], nums[j]+1, ..., S\}}}$ （注意内循环要反过来，和0-1背包一样）
-
-```cpp
-class Solution {
-public:
-    int findTargetSumWays(const vector<int>& nums, int target) {
-        int sum = 0;
-        if (nums.empty())
-            return 0;
-        for (int val: nums) {
-            sum += val;
-        }
-        if (sum < target || ((sum + target) & 1))
-            return 0;
-        else
-            return findSubSet(nums, (sum + target) >> 1);
-    }
-    
-    int findSubSet(const vector<int>& nums, int target) {
-        vector<vector<int>> dp(nums.size(), vector<int>(target + 1, 0));
-        dp[0][0] = 1;
-        if (nums[0] <= target)
-            dp[0][nums[0]] += 1;
-        for (int i=1; i<nums.size(); i++) {
-            for (int j=0; j<=target; j++) {
-                dp[i][j] = dp[i - 1][j];
-                if (j - nums[i] >= 0)
-                    dp[i][j] += dp[i - 1][j - nums[i]];
-            }
-        }
-        return dp.back()[target];
-    }
-};
-```
-
-答案区里更简洁的代码
-
-```cpp
-class Solution {
-public:
-    int findTargetSumWays(vector<int>& nums, int s) {
-        int sum = accumulate(nums.begin(), nums.end(), 0);
-        return sum < s || (s + sum) & 1 ? 0 : subsetSum(nums, (s + sum) >> 1); 
-    }   
-
-    int subsetSum(vector<int>& nums, int s) {
-        int dp[s + 1] = { 0 };
-        dp[0] = 1;
-        for (int n : nums)
-            for (int i = s; i >= n; i--)
-                dp[i] += dp[i - n];
-        return dp[s];
-    }
-};
-```
-
 ## 123. Best Time to Buy and Sell Stock III
 
 hard难度，最优解应该是$O(N)$，但我的$O(N^{2})$加了魔法优化trick之后居然歪打正着地跑到了6ms，击败了55.08%的submission。。。
@@ -230,50 +156,6 @@ public:
         return dp[m - 1][n - 1];
     }
 };
-```
-
-## 322. Coin Change
-
-比较标准的完全背包题，开一个长度为amount + 1的数组dp，其中dp[i]代表凑够金额i最少需要使用dp[i]数量的硬币，由此可得递推公式为
-
-$$dp[i]=\min{(dp[i], dp[i-v] + 1)} \quad{} \forall{v\in{coins}}$$
-
-第一次写的时候写出的代码是三层循环，效率很低，如下
-
-```cpp
-const int MAXVAL = 100000001;
-int coinChange(vector<int>& coins, int amount) {
-    int tmp;
-    vector<int> dp(amount + 1, MAXVAL);
-    dp[0] = 0;
-    for (int i=1; i<=amount; i++) {
-        for (int val: coins) {
-            for (int k=1; i - k * val >= 0; k++) {
-                dp[i] = min(dp[i - k * val] + k, dp[i]);
-            }
-        }
-    }
-    return dp[amount] == MAXVAL? -1 : dp[amount];
-}
-```
-
-事实上最里层的这个循环是不需要的，为什么，试考虑这个问题的最优子问题性质，可以想到，若`dp[i - val]`中存储了凑够金额`i - val`的最少硬币数量，那么`dp[i - val]`对于凑够金额`i - val`这个子问题是最优的，我们就无需再去搜索比`i - val`更小的子问题空间了。
-
-最终24ms代码如下
-
-```cpp
-int coinChange(vector<int>& coins, int amount) {
-    vector<int> dp(amount + 1, MAXVAL);
-    dp[0] = 0;
-    for (int i=1; i<=amount; i++) {
-        for (int val: coins) {
-            if (val <= i) {
-                dp[i] = min(dp[i], dp[i - val] + 1);
-            }
-        }
-    }
-    return dp[amount] == MAXVAL? -1 : dp[amount];
-}
 ```
 
 ## 72. Edit Distance
@@ -536,4 +418,85 @@ int findNumberOfLIS(vector<int>& nums) {
             ans += cnt[i];
     return ans;
 }
+```
+
+## 87. Cheapest Flights Within K Stops
+
+> There are n cities connected by m flights. Each fight starts from city u and arrives at v with a price w.
+> 
+> Now given all the cities and flights, together with starting city src and the destination dst, your task is to find the cheapest price from src to dst with up to k stops. If there is no such route, output -1.
+
+起初认为是BFS水题，结果BFS写了半天也没AC，实现代码如下
+
+```cpp
+class Solution {
+    const int MAX_DIST = 0x7fffffff;
+public:
+    int findCheapestPrice(int n, vector<vector<int>>& edges, int src, int dst, int k) {
+        queue<pair<int, int>> que;
+        que.push(pair<int, int>(src, 0));
+        vector<int> dist(n, MAX_DIST);
+        dist[src] = 0;
+        while (!que.empty()) {
+            pair<int, int> from = que.front();
+            if (from.second > k)
+                break;
+            que.pop();
+            for (const vector<int>& e: edges) {
+                if (e[0] == from.first) {
+                    que.push(pair<int, int>(e[1], from.second + 1));
+                    if (dist[from.first] != MAX_DIST && dist[from.first] + e[2] < dist[e[1]])
+                        dist[e[1]] = dist[from.first] + e[2];
+                }
+            }
+        }
+        if (dist[dst] == MAX_DIST)
+            return -1;
+        else
+            return dist[dst];
+    }
+};
+```
+
+问题出在哪里？问题在于距离更新的这一行
+
+```cpp
+if (dist[from.first] != MAX_DIST && dist[from.first] + e[2] < dist[e[1]])
+    dist[e[1]] = dist[from.first] + e[2];
+```
+
+这里的更新每次都需要去直接更改dist，可以想到，输入变量edges的顺序会影响到更新后dist数组内的值。
+
+举例说明，假设给定一个graph，src为A，dst点为C，且edges的顺序为
+```
+A-->B
+B-->C
+```
+那么第一轮更新时会先更新原点A到B的距离，然后更新C的距离的时候B的距离又会影响到C的距离值。若edges的顺序倒置，那么第一轮更新就只会更新节点B的距离，不会更新C。由于更新中edges的顺序会影响到迭代次数，既然题意中要求了中转不能超过K次，那么代码中就无法对中转次数的变量进行跟踪。
+
+事实上这个题目的标准解法居然还有一个响亮的名字，叫做Bellman Ford算法，详见[百度百科](https://baike.baidu.com/item/bellman-ford%E7%AE%97%E6%B3%95/1089090)或[Wikipedia](https://en.wikipedia.org/wiki/Bellman%E2%80%93Ford_algorithm)
+
+思路和上面的基本相同，解决方法就是为dist数组储存一个完整的备份，每次迭代后将新迭代后的值赋值给备份即可（value iteration的既视感又出来了），代码如下
+
+```cpp
+class Solution {
+    const int MAXVAL = 1e+8;
+public:
+    // Bellman Ford
+    int findCheapestPrice(int n, vector<vector<int>>& edges, int src, int dst, int k) {
+        vector<int> dist(n, MAXVAL);
+        dist[src] = 0;
+        vector<int> dist_copy(dist.begin(), dist.end());
+        for (int i=0; i<=k; i++) {
+            for (const vector<int>& e: edges) {
+                dist_copy[e[1]] = min(dist_copy[e[1]], dist[e[0]] + e[2]);
+            }
+            dist.assign(dist_copy.begin(), dist_copy.end());
+        }
+        if (dist[dst] == MAXVAL)
+            return -1;
+        else
+            return dist[dst];
+    }
+};
 ```

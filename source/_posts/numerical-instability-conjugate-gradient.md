@@ -11,15 +11,19 @@ mathjax: true
 
 这个问题是在实现natural gradient optimization的时候发现的，代码实现的思路严格参照了[Wikipedia上有关conjugate gradient的讲解](https://en.wikipedia.org/wiki/Conjugate_gradient_method)，由于代码真正运行是在静态的计算图中，运行时也很难debug出到底出问题的是哪一步。
 
-最后问题解决的办法也非常暴力——在屏幕上打印出所有的变量一一检查，逐层定位问题。
+最后问题解决的办法也非常暴力——在屏幕上打印出所有的变量一一检查，逐层定位问题。经检查，最有可能的两个问题是：
+- Conjugate gradient算法实现中可能会出现分母为零的情况
+- 计算KL divergence时出现浮点数下溢，导致log输出NaN
 
-**一句话总结问题：conjugate gradient迭代过程中可能会出现分母为零的情况**
-
-理论上来讲，这种情况的可能性很小，因为information geometry optimization的核心度量Fisher information matrix一般来讲都是非奇异的。给定$N$个不同的样本，FIM的rank不小于$N\times{\dim(\mathcal{Z})}$，其中$\dim(\mathcal{Z})$为模型输出空间概率分布本身的维度。这也就是说我们只要把batch size给到足够大，FIM不会出现奇异的情况
+理论上来讲这种情况是不会发生的，因为information geometry optimization的核心度量Fisher information matrix一般来讲都是非奇异的。给定$N$个不同的样本，FIM的rank不小于$N\times{\dim(\mathcal{Z})}$，其中$\dim(\mathcal{Z})$为模型输出空间概率分布本身的维度。这也就是说我们只要把batch size给到足够大，FIM不会出现奇异的情况
 
 但实际代码运行的时候，由于一些数值上的不稳定性，FIM奇异还是有可能会出现
 
 ## Code implementation
+
+### Conjugate gradient in TensorFlow static computational graph
+
+Conjugate gradient的实现确实是比较复杂，想要将其写在TensorFlow的静态计算图内部还是比较麻烦，遇到的坑会比用numpy实现多不少，以下先放代码
 
 ```python
 def hessian_vector_product(x, grad, variable):
@@ -51,8 +55,66 @@ def build_conjugate_gradient(x, kl_grad, variable, n_iter=10, func_Ax=hessian_ve
         r_dot_r = r_dot_r_new
         p = r + beta * p
     return x
+```
 
+Ideas worth noting:
+- The conjugate gradient does not require direct access to the explicit form of the matrix, only matrix-vector-product is needed. Let $\hat{F}\in{\mathbb{R}^{N\times{N}}}$ be the FIM estimated with a batch of data, and let $v\in{\mathbb{R}^{N}}$ be an arbitrary vector, then $\hat{F}^{-1}v=\nabla_{\theta}(v^{T}\nabla_{\theta}D_{KL}(\pi_{\text{old}}||\pi))$.
+- When calculating the matrix-vector-product $\hat{F}^{-1}v$, remember to block the gradient from vector $v$ using `tf.stop_gradient` in every iteration. Your gradient should **only come from the KL divergence term**.
+- There are devision operations for variables `alpha` and `beta`. Remember to add a small number (`EPSILON`) for the denominator in case of NaN output.
 
+github上也可以找到其他的基于TensorFlow静态计算图的conjugate gradient实现，[其中一个印象比较深刻的实现方法](https://github.com/steveKapturowski/tensorflow-rl/blob/master/algorithms/trpo_actor_learner.py)是将while循环判断也写在了计算图的内部，用`tf.while_loop`实现，代码如下
+
+```python
+def _conjugate_gradient_ops(self, pg_grads, kl_grads, max_iterations=20, residual_tol=1e-10):
+    i0 = tf.constant(0, dtype=tf.int32)
+    loop_condition = lambda i, r, p, x, rdotr: tf.logical_and(
+        tf.greater(rdotr, residual_tol), tf.less(i, max_iterations))
+
+    def body(i, r, p, x, rdotr):
+        fvp = utils.ops.flatten_vars(tf.gradients(
+            tf.reduce_sum(tf.stop_gradient(p)*kl_grads),
+            self.policy_network.params))
+        z = fvp + self.cg_damping * p
+        alpha = rdotr / (tf.reduce_sum(p*z) + 1e-8)
+        x += alpha * p
+        r -= alpha * z
+        new_rdotr = tf.reduce_sum(r*r)
+        beta = new_rdotr / (rdotr + 1e-8)
+        p = r + beta * p
+        new_rdotr = tf.Print(new_rdotr, [i, new_rdotr], 'Iteration / Residual: ')
+        return i+1, r, p, x, new_rdotr
+
+    _, r, p, stepdir, rdotr = tf.while_loop(
+        loop_condition,
+        body,
+        loop_vars=[i0,
+                    pg_grads,
+                    pg_grads,
+                    tf.zeros_like(pg_grads),
+                    tf.reduce_sum(pg_grads*pg_grads)])
+    fvp = utils.ops.flatten_vars(tf.gradients(
+        tf.reduce_sum(tf.stop_gradient(stepdir)*kl_grads),
+        self.policy_network.params))
+    shs = 0.5 * tf.reduce_sum(stepdir*fvp)
+    lm = tf.sqrt((shs + 1e-8) / self.max_kl)
+    fullstep = stepdir / lm
+    neggdotstepdir = tf.reduce_sum(pg_grads*stepdir) / lm
+    return fullstep, neggdotstepdir
+```
+
+### Model definition and environment interaction
+
+调了一晚上的bug，根源就在这部分代码中。在[jupyter notebook](https://github.com/ChenShawn/advanced_policy_gradient_methods/blob/master/debug.ipynb)中打印出了所有变量的实际值后，发现一些奇怪的现象：
+
+- 问题出在从普通的gradient转成natural gradient的过程中，普通gradient数值没有问题，natural gradient时常数值爆炸，或者直接出现NaN
+- 搭了一个小网络来测试conjugate gradient实现的正确与否，发现偶尔会出现FIM奇异的情况，推测是numerical instability所致
+- 进一步的测试中发现，每一步的迭代中并不总是会出现FIM奇异。相对而言较大、且靠近底层的参数不容易出现FIM奇异，参数量较小且靠近输出层的参数容易出现NaN，当时最频繁出现NaN的参数，就是网络最后一层的bias
+
+猜测这种numerical instability可能是由于KL divergence不稳定导致的，所以干脆把旧的policy网络和新的policy网络写成同一个，设置`reuse=True`的来共享网络参数，这样KL divergence就会始终为0，毕竟我们需要的只是KL divergence的gradient和Hessian而已。
+
+后续实验中发现这样写会使得网络迭代更新速度缓慢，且容易收敛到sub-optimal点，有关这个问题之后如有新的发现再来更新这里的内容吧
+
+```python
 def collect_multi_batch(env, agent, maxlen, batch_size=64, qsize=5):
     """collect_multi_batch
     See collect_one_trajectory docstring
@@ -67,9 +129,6 @@ def collect_multi_batch(env, agent, maxlen, batch_size=64, qsize=5):
     # Interact with environment
     buffer_s, buffer_a, buffer_r = [], [], []
     for it in range(maxlen):
-        # The idea works on Atari games
-        # if normalize_state:
-        #     s = np.clip((s - s.mean()) / s.std(), -5.0, 5.0)
         s = np.concatenate(que, axis=-1)
         a = agent.choose_action(s)
         buffer_s.append(s)
@@ -83,16 +142,18 @@ def collect_multi_batch(env, agent, maxlen, batch_size=64, qsize=5):
             break
     # Accumulate rewards
     discounted = 1.0
+    last_value = model.value_estimate(s)
+    discounted_r = []
     for it in range(len(buffer_r) - 2, -1, -1):
-        buffer_r[it] = buffer_r[it + 1] + discounted * buffer_r[it]
-        discounted *= args.gamma
+        last_value = r + args.gamma * last_value
+        discounted_r.append(last_value)
     state_data, action_data, reward_data = [], [], []
     for it in range(0, maxlen, batch_size):
         if it >= len(buffer_s):
             break
         states_array = np.concatenate(buffer_s[it: it + batch_size], axis=0)
         actions_array = np.concatenate(buffer_a[it: it + batch_size], axis=0)
-        rewards_array = np.array(buffer_r[it: it + batch_size], dtype=np.float32)[:, None]
+        rewards_array = np.array(discounted_r[it: it + batch_size], dtype=np.float32)[:, None]
         # rewards_array = np.clip(rewards_array, -1.0, 5.0)
         state_data.append(states_array)
         action_data.append(actions_array)

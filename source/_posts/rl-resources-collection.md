@@ -53,4 +53,4 @@ Some of the materials above is adapted from [an article about reinforcement lear
 
 ## Papers up to date
 
-- (to be updated)
+- 见[论文整理Tag下的若干文章](https://chenshawn.github.io/tags/Resource-collection/)

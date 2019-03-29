@@ -45,7 +45,76 @@ float newton(float y, float epsilon=1e-5, int maxiter=20) {
 }
 ```
 
+## 基础二：乱序数组找第k大的数
+
+阿里二面中被问到的问题，原问题为乱序数组找中位数，现延伸到更宏观的层面：如何在乱序数组中找到第k大的数
+
+思路就是partition，问题在于为什么这个算法的复杂度是$O(N)$而不是$O(N\log(N))$
+
+```cpp
+int findKthLargest(vector<int>& nums, int k) {
+    partition(nums, 0, nums.size() - 1, k);
+    int ans = 0, dep = 1;
+    return nums[nums.size() - k];
+}
+
+void partition(vector<int>& nums, int left, int right, int k) {
+    if (left >= right)
+        return;
+    int lo = left, hi = right, basis = nums[lo];
+    while (lo < hi) {
+        while (hi > lo && nums[hi] >= basis)
+            -- hi;
+        if (hi <= lo)
+            break;
+        nums[lo] = nums[hi];
+        while (lo < hi && nums[lo] <= basis)
+            ++ lo;
+        if (lo >= hi)
+            break;
+        nums[hi] = nums[lo];
+    }
+    nums[lo] = basis;
+    if (lo > nums.size() - k) {
+        partition(nums, left, lo - 1, k);
+    } else if (lo < nums.size() - k) {
+        partition(nums, lo + 1, right, k);
+    } else {
+        return;
+    }
+}
+```
+
 # Binary Search
+
+## 240. Search a 2D Matrix II
+
+> Write an efficient algorithm that searches for a value in an m x n matrix. This matrix has the following properties:
+> - Integers in each row are sorted in ascending from left to right.
+> - Integers in each column are sorted in ascending from top to bottom.
+
+乍看像binary search，一旦思路被绕进binary search就出不来了。。
+
+```cpp
+bool searchMatrix(vector<vector<int>>& matrix, int target) {
+    int m = matrix.size();
+    if (m == 0)
+        return false;
+    int n = matrix[0].size();
+
+    int row = 0, col = n - 1;
+    while (row < m && col >= 0) {
+        if (matrix[row][col] == target)
+            return true;
+        else if (matrix[row][col] > target) {
+            col--;
+        } else {
+            row++;
+        }
+    }
+    return false;
+}
+```
 
 ## 4. Median of Two Sorted Arrays
 

@@ -23,5 +23,9 @@ tags: Personal
 
 *Note: first things first!*
 
-- Update advanced_policy_gradient: DPPO，暂使用实验室内`49.xx.10.199`与`49.xx.10.197`两台机器进行训练
-- 整理ICLR-2019文章
+- Devided-and-Conquer
+- Re-implement GAIL-related works
+  - AIRL，只是把D网络的结构改成了reward-shaping的形式，但有证明
+  - 2017, Li *et al*, info-GAIL，解决multiple expert demonstration问题
+  - ICLR-2019, Directed-info GAIL，由于涉及到一些option framework的内容，formulation还蛮复杂的
+- Distributed DDPG的复现真是个悲伤的故事，即使只是在Pendulum-v0这样简单的任务上想复现出DDPG的效果也相当不容易（弃坑

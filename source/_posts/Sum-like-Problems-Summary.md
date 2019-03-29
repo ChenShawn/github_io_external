@@ -1,5 +1,5 @@
 ---
-title: Sum类问题总结
+title: Array类问题总结
 date: 2019-01-03 13:48:50
 tags: Coding
 mathjax: true
@@ -207,6 +207,169 @@ public:
         }
     }
 };
+```
+
+## 169. Majority Element
+
+> Given an array of size n, find the majority element. The majority element is the element that appears more than ⌊ n/2 ⌋ times.
+> 
+> You may assume that the array is non-empty and the majority element always exist in the array.
+
+### 解法一：Brute force
+
+*复杂度$O(N)$，运行时间4576ms*
+
+```cpp
+int majorityElement(vector<int>& nums) {
+    int n = nums.size();
+    for (int k: nums) {
+        int cnt = 0;
+        for (int v: nums) {
+            if (k == v)
+                cnt ++;
+            if (cnt > (n >> 1))
+                return k;
+        }
+    }
+    return -1;
+}
+```
+
+### 解法二：快排变形
+
+一种同样暴力的方法是排序
+
+```cpp
+int majorityElement(vector<int>& nums) {
+    int n = nums.size();
+    sort(nums.begin(), nums.end());
+    return nums[(nums.size() >> 1)];
+}
+```
+
+在各种排序算法中，快排的思路是先做partition得到重点$m$使得$nums[i]<nums[m],\forall{i}<m$且$nums[j]>nums[m],\forall{j}>m$，可以想到由于众数的性质要求其出现次数必须大于⌊ n/2 ⌋，则每次partition的时候只需要递归较长的一条子串即可，代码如下
+
+```cpp
+class Solution {
+public:
+    int majorityElement(vector<int>& nums) {
+        partition(nums, 0, nums.size() - 1);
+        return nums[(nums.size()) >> 1];
+    }
+    
+    void partition(vector<int>& nums, int left, int right) {
+        if (left >= right)
+            return;
+        int basis = nums[left], l = left, r = right;
+        while (l < r) {
+            while (r > l && nums[r] >= basis)
+                -- r;
+            if (r <= l)
+                break;
+            nums[l] = nums[r];
+            while (l < r && nums[l] < basis)
+                ++ l;
+            if (l >= r)
+                break;
+            nums[r] = nums[l];
+        }
+        nums[l] = basis;
+        if (l < (nums.size() >> 1))
+            partition(nums, l + 1, right);
+        else if (l > (nums.size() >> 1))
+            partition(nums, left, l - 1);
+    }
+};
+```
+
+这种思路并不会降低复杂度，只是一种优化trick而已，运行时间2400ms+
+
+### 解法三：Randomization
+
+最神奇的一种解法，实现思路极其简单，运行时间20ms。几何分布，由于众数出现的次数一定大于$⌊ N/2 ⌋$，那么时间复杂度期望最坏情况下为$2N$
+
+```cpp
+int majorityElement(vector<int>& nums) {
+    int n = nums.size();
+    srand(unsigned(time(NULL)));
+    while (true) {
+        int idx = rand() % n;
+        int candidate = nums[idx];
+        int counts = 0; 
+        for (int i = 0; i < n; i++)
+            if (nums[i] == candidate)
+                counts++; 
+        if (counts > n / 2)
+            return candidate;
+    }
+    return -1;
+}
+```
+
+### 解法四：Moore Voting Algorithm
+
+第一次做基本上很难想到这种解法，20ms，这个解法让我想起最大连续子列和的题目
+
+```cpp
+int majorityElement(vector<int>& nums) {
+    int major, counts = 0, n = nums.size();
+    for (int i = 0; i < n; i++) {
+        if (!counts) {
+            major = nums[i];
+            counts = 1;
+        } else {
+            counts += (nums[i] == major) ? 1 : -1;
+        }
+    }
+    return major;
+}
+```
+
+## 229. Majority Element II
+
+> Given an integer array of size n, find all elements that appear more than ⌊ n/3 ⌋ times.
+>
+> **Note:** The algorithm should run in linear time and in O(1) space.
+
+Moore Voting Algorithm变种
+
+```cpp
+vector<int> majorityElement(vector<int>& nums) {
+    vector<int> ans;
+    if (nums.empty())
+        return ans;
+    else if (nums.size() == 1)
+        return {nums.begin(), nums.end()};
+    int maj1 = 0, maj2 = 0, cnt1 = 0, cnt2 = 0;
+    for (int val: nums) {
+        if (val == maj1) {
+            cnt1 ++;
+        } else if (val == maj2) {
+            cnt2 ++;
+        } else if (cnt1 == 0) {
+            maj1 = val;
+            cnt1 = 1;
+        } else if (cnt2 == 0) {
+            maj2 = val;
+            cnt2 = 1;
+        } else {
+            cnt1 --;
+            cnt2 --;
+        }
+    }
+    cnt1 = 0; cnt2 = 0;
+    for (int val: nums) {
+        if (val == maj1)
+            cnt1 ++;
+        else if (val == maj2)
+            cnt2 ++;
+    }
+    if (cnt1 > (nums.size() / 3))
+        ans.push_back(maj1);
+    if (cnt2 > (nums.size() / 3))
+        ans.push_back(maj2);
+    return ans;
+}
 ```
 
 ## 112. Path Sum
@@ -458,5 +621,51 @@ int combinationSum4(vector<int>& nums, int target) {
         }
     }
     return dp[target];
+}
+```
+
+## 769. Max Chunks To Make Sorted
+
+> Given an array arr that is a permutation of [0, 1, ..., arr.length - 1], we split the array into some number of "chunks" (partitions), and individually sort each chunk.  After concatenating them, the result equals the sorted array.
+> 
+> What is the most number of chunks we could have made?
+
+最优解法时间复杂度$O(N)$，空间$O(1)$
+
+- 要找到数组中所有的下标i，使得对于所有$j<i,k>i$，都满足$arr[j]<arr[i]$且$arr[k]>arr[i]$——满足这样条件下标个数即为最终所求的目标
+- 如何充分利用题意中数组arr是从0到N的permutation这一性质？可以想到，若下标i满足$i\geq{arr[j]},\forall{j}=0,1,...,i-1$，则i之前的数字一定可以单独分作一段
+- 具体做法就是遍历数组中的每个数字，keep track of the maximum number。由于数组是从0到N-1的permutation，如果到下标i时最大值等于i，则说明之前的所有数字
+
+```cpp
+int maxChunksToSorted(vector<int>& arr) {
+    int cnt = 0, mval = 0x80000000;
+    for (int i=0; i<arr.size(); i++) {
+        if (arr[i] > mval)
+            mval = arr[i];
+        if (i == mval)
+            cnt ++;
+    }
+    return cnt;
+}
+```
+
+## 768. Max Chunks To Make Sorted II
+
+> This question is the same as ["Max Chunks to Make Sorted"](#769-Max-Chunks-To-Make-Sorted) except the integers of the given array are not necessarily distinct, the input array could be up to length 2000, and the elements could be up to 10**8.
+
+看到这个答案无话可说，实实在在的智商差距
+
+```cpp
+int maxChunksToSorted(vector<int>& arr) {
+    vector<int> arr_cp(arr.begin(), arr.end());
+    sort(arr_cp.begin(), arr_cp.end());
+    long long ans = 0, sum1 = 0, sum2 = 0;
+    for (int i=0; i<arr.size(); i++) {
+        sum1 += arr[i];
+        sum2 += arr_cp[i];
+        if (sum1 == sum2)
+            ans ++;
+    }
+    return ans;
 }
 ```

@@ -109,7 +109,20 @@ gaussian_old = tf.distribution.Normal(mu_old, sigma_old)
 kl_divergence = tf.distributions.kl_divergence(gaussian_old, gaussian)
 ```
 
-## 5. Can randomized model learn the uncertainty in reinforcement learning?
+## 5. Gumbel-Softmax Trick
 
-建模一个概率分布而非确定的函数映射，这种思路在supervised learning框架下是很直观的，然而如果是在强化学习任务上，随机模型是否真的可以学习到环境中所包含的不确定性呢？
+**References**
 
+- [The Gumbel-Softmax Trick for Inference of Discrete Variables](https://casmls.github.io/general/2017/02/01/GumbelSoftmax.html)
+- [Gumbel-Softmax Trick和Gumbel分布](https://www.cnblogs.com/initial-h/p/9468974.html)
+
+**Goal**
+
+上面VAE中，使用reparameterization trick的最终目的是从连续概率分布中 (Gaussian) 采样，同时保持网络的可微性，相比之下Gumbel-softmax trick则是从softmax层输出的额归一化概率中采样，并保持网络的可微分性质
+
+**Implementation**
+
+1. Sample $\bm{\epsilon}:=(\epsilon_{1},\epsilon_{2},...,\epsilon_{n})$ where each $\epsilon_{i}$ is i.i.d. sampled from $U(0,1)$
+2. $\bm{g}=-\log(-\log(\bm{\epsilon}))$
+3. $\bm{v}'=\bm{v}+\bm{g}$, where $\bm{v}$ is the output of the softmax layer normalized to $\sum_{i}v_{i}=1$
+4. Softmax again by $\sigma_{i}(\bm{v}')=\frac{\exp(v'_{i}/\tau)}{\sum_{j=1}^{n}\exp(v'_{j}/\tau)}$, i.e. `gumbel = tf.softmax(v / tau)`, where $\tau$ is the temperature parameter, which should perform an anealing during training
