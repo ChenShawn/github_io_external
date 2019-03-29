@@ -3,10 +3,10 @@
 ## Source: https://github.com/hexojs/hexo/
 
 # Site
-title: Welcome!
-subtitle: 三尺微命，一介书生
+title: Chen Shawn's Blog
+subtitle: 
 description: 三尺微命，一介书生
-keywords:
+keywords: Machine learning and programming
 author: Chen Shawn
 language:
 timezone:
@@ -73,7 +73,7 @@ pagination_dir: page
 # Extensions
 ## Plugins: https://hexo.io/plugins/
 ## Themes: https://hexo.io/themes/
-theme: yilia
+theme: next
 
 jsonContent:
   meta: false
@@ -104,3 +104,10 @@ deploy:
 
 mathjax: 
   enable: true
+  per_page: false
+
+
+search:
+  path: search.xml
+  field: all
+  format: html
